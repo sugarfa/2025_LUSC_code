@@ -133,3 +133,48 @@ walk(c("MUC16","TP53","USH2A"),function(g){
 
   ggsave(p2 ,filename = str_glue("{od}/lusc_{g}_mut_per.pdf"),width = 3,height = 4)
 })
+
+snv_dat <- read.maf(data_snv)
+
+vc_cols = c("#1F6CB6","red3","#70BC6B","#F4B9C5","#784194","#B81A7B","#A65628","#9E1F63")  # RdYlBu
+names(vc_cols) = c(
+  'Missense_Mutation',
+  'Multi_Hit',
+  'Frame_Shift_Del',
+  'Nonsense_Mutation',
+  'Frame_Shift_Ins',
+  'In_Frame_Ins',
+  'Splice_Site',
+  'In_Frame_Del'
+)
+col1 = c("black","gray50","#CCCCCC");
+names(col1) = c('MSI-H','MSI-L','MSS')
+col2 = c("#784193","#CCCCCC","darkgreen","skyblue4","white");
+names(col2) = c('Stage I','Stage II',"Stage III","Stage IV","NA")
+
+
+pdf(file = str_glue("{od}/lusc_mutation_summary.pdf"), height = 5, width = 8)
+plotmafSummary(maf = snv_dat, rmOutlier = TRUE, addStat = 'median', dashboard = TRUE, titvRaw = FALSE)
+dev.off()
+
+pdf(file = str_glue("{od}/lusc_mutation_oncoplot.pdf"), height = 5, width = 5)
+oncoplot(maf = snv_dat,top = 20,colors = vc_cols,annotationColor = list(MSI_STATUS=col1,TUMOR_STAGE_2009=col2))
+dev.off()
+
+walk(unique(sample_cluster$Group),function(x){
+    dir.create(str_glue("{od}/{x}"))
+    cluster_sample <- sample_cluster %>% filter(Group == x) %>% pull(Sample)
+    snv_dat_sub <- read.maf(data_snv %>% filter(sample %in% cluster_sample))
+    pdf(file = str_glue("{od}/{x}/lusc_mutation_snp_summary.pdf"), height = 5, width = 8)
+    plotmafSummary(maf = snv_dat_sub, rmOutlier = TRUE, addStat = 'median', dashboard = TRUE, titvRaw = FALSE)
+    dev.off()
+    pdf(file = str_glue("{od}/{x}/lusc_mutation_snp_oncoplot.pdf"), height = 5, width = 6)
+    oncoplot(maf = snv_dat_sub,,colors = vc_cols,annotationColor = list(MSI_STATUS=col1,TUMOR_STAGE_2009=col2))
+    dev.off()
+
+    walk(snv_dat_sub@gene.summary$Hugo_Symbol %>% head(5),function(y){
+        pdf(file = str_glue("{od}/{x}/lollipop_{y}.pdf"), height = 5, width = 4)
+        lollipopPlot(maf = snv_dat, gene = y, showDomainLabel = FALSE)
+        dev.off()
+    })
+})
